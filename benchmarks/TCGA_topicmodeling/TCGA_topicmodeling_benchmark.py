@@ -127,7 +127,7 @@ def preprocess_data(
     label="Subtype_Selected_Lum",
 ):
     # get the reduced space matrix
-    filename = f"{directory}/{algorithm}/{algorithm}_level_%d_topic-dist.csv"
+    filename = f"{directory}/{algorithm}/{algorithm}_level_{L}_topic-dist.csv"
     df_topics = pd.read_csv(filename)
     df_topics = df_topics.set_index("doc").drop("i_doc", axis=1)
     filename = "%s/%s/%s_level_%d_word-dist.csv" % (directory, algorithm, algorithm, L)
