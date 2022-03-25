@@ -27,6 +27,7 @@ Global variables definition
 gpu_performance_sampling_time = 1
 keep_running = True
 
+
 class GPUstatistics(keras.callbacks.Callback):
     """
     A set of custom Keras callbacks to monitor Nvidia GPUs load
@@ -108,19 +109,29 @@ class TimeHistory(keras.callbacks.Callback):
     def on_predict_end(self, batch, logs={}):
         self.training_time.append(time.time() - self.training_time_start)
 
+
 def preprocess_data(verbose=True, L=0, algorithm="topsbm", directory="breast", label = 'Subtype_Selected_Lum'):
+    # get the reduced space matrix
     df_topics = pd.read_csv("%s/%s/%s_level_%d_topic-dist.csv"%(directory,algorithm,algorithm,L)).set_index('doc').drop('i_doc', axis=1)
     df_words = pd.read_csv("%s/%s/%s_level_%d_word-dist.csv"%(directory,algorithm,algorithm,L), index_col=0)
+    
+    # clean gene ENSG names
     df_words.index=[g[:15] for g in df_words.index]
+
+    # read original space data and normalise
     df = pd.read_csv("%s/mainTable.csv"%(directory), index_col=0).reindex(index=df_words.index)
     df = df.divide(df.sum(0),1).transpose().fillna(0)
     df_files=pd.read_csv("%s/files.dat"%(directory), index_col=0)
+    
+    # get the tumour subtype (tissue) label
     df_topics.insert(0,'tissue', df_files.reindex(index=df_topics.index)[label])
     df_topic_tissue = df_topics.groupby('tissue').mean()
     df_topics = df_topics[df_topics["tissue"]!="unknown"]
     df_labels=df_files.copy()
     df_labels=df_labels.reindex(index=df_topics.index)
     X = df_topics.drop('tissue',1)
+    
+    # feature scaling to use SGD
     X = X.subtract(X.mean(0),1).divide(0.5*(X.max(0)-X.min(0)),1).values.astype(float) #SGD transform
     Y = to_categorical(np.unique(df_labels[label], return_inverse=True)[1])
 
@@ -128,32 +139,50 @@ def preprocess_data(verbose=True, L=0, algorithm="topsbm", directory="breast", l
       print(X.shape, Y.shape)
     
     return X, Y
-   
+
+
 def recall_m(y_true, y_pred):
+    """
+    Estimate recall 
+    recall = TP / (TP + FN)
+    """
     true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
     possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
     recall = true_positives / (possible_positives + K.epsilon())
     return recall
 
+
 def precision_m(y_true, y_pred):
+    """
+    Estimate precision
+    precision = TP / (TP + FP)
+    """
     true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
     predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
     precision = true_positives / (predicted_positives + K.epsilon())
     return precision
 
+
 def f1(y_true, y_pred):
+    """
+    F1 score in tensorflow
+     f1 is the harmonic average of precision and recall
+    """
     precision = precision_m(y_true, y_pred)
     recall = recall_m(y_true, y_pred)
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
+
 def create_model(opt, l1, l2, hidden, input_dim, output_dim, loss=categorical_crossentropy, activation_func = "softmax",  verbose=True):
+  """
+  Creates a tf.keras.Sequential() model
+  """
   K.clear_session()
 
   model=Sequential()
   model.add(Dense(units=hidden, input_dim=input_dim, use_bias=True, bias_initializer="ones", activation="relu", kernel_regularizer=l1_l2(l1=l1, l2=l2)))
   model.add(Dense(units=output_dim, activation=activation_func))
   model.compile(loss=loss, optimizer=opt, metrics=['accuracy', 'AUC', f1])
-  K.set_learning_phase(0)
 
   if verbose:
     print(model.summary())
