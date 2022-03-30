@@ -1,6 +1,6 @@
 # TCGA data
 
-Run a benchmark on The Cancer Genome Atlas data. The original 20000 dimensional space is firstly reduced with topic modeling tecniques described in [A Topic Modeling Analysis of TCGA Breast and Lung Cancer Transcriptomic Data](https://doi.org/10.3390/cancers12123799) the a NN predictor is trained in a lower dimanesional (explainable and biologically relevant) space.
+The reduced space is based on the results of [A Topic Modeling Analysis of TCGA Breast and Lung Cancer Transcriptomic Data](https://doi.org/10.3390/cancers12123799)
 
 # LICENSE
 
